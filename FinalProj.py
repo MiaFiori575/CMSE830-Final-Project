@@ -338,9 +338,94 @@ X_pca = pca.fit_transform(X_scaled)
 pca_df = pd.DataFrame(X_pca, columns=[f"PC{i+1}" for i in range(pca.n_components_)])
 pca_df["Type"] = waves_physio["Type"].values
 
+# --- Step 1: Keep only numeric predictors (drop Sample_ID and Type) ---
+X = waves_physio.drop(columns=["Sample_ID","Type","%TS (w/w)","TSS (% w/v)","Turbidity (NTU)"])
+y_tss = waves_physio["TSS (% w/v)"]
+y_turb = waves_physio["Turbidity (NTU)"]
+
+# --- Step 2: Standardize predictors ---
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# --- Step 3: Fit regression models ---
+model_tss = LinearRegression().fit(X_scaled, y_tss)
+model_turb = LinearRegression().fit(X_scaled, y_turb)
+
+# --- Step 4: Output regression functions ---
+print("TSS model intercept:", model_tss.intercept_)
+print("TSS model coefficients:", dict(zip(X.columns, model_tss.coef_)))
+
+print("\nTurbidity model intercept:", model_turb.intercept_)
+print("Turbidity model coefficients:", dict(zip(X.columns, model_turb.coef_)))
+
+# --- Step 5: Evaluate performance ---
+y_tss_pred = model_tss.predict(X_scaled)
+y_turb_pred = model_turb.predict(X_scaled)
+
+# Predictions from your fitted models
+y_tss_pred = model_tss.predict(X_scaled)
+y_turb_pred = model_turb.predict(X_scaled)
+
+# Metrics
+tss_r2 = r2_score(y_tss, y_tss_pred)
+tss_mse = mean_squared_error(y_tss, y_tss_pred)
+tss_rmse = np.sqrt(tss_mse)
+
+turb_r2 = r2_score(y_turb, y_turb_pred)
+turb_mse = mean_squared_error(y_turb, y_turb_pred)
+turb_rmse = np.sqrt(turb_mse)
+
+# --- Step 1: Prepare predictors and targets ---
+X = waves_physio.drop(columns=["Sample_ID","Type","%TS (w/w)","TSS (% w/v)","Turbidity (NTU)"])
+y_tss = waves_physio["TSS (% w/v)"]
+y_turb = waves_physio["Turbidity (NTU)"]
+
+# --- Step 2: Standardize predictors ---
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# --- Step 3: Fit regression models ---
+model_tss = LinearRegression().fit(X_scaled, y_tss)
+model_turb = LinearRegression().fit(X_scaled, y_turb)
+
+# --- Step 4: Function to print equation ---
+def print_equation(model, X, target_name):
+    intercept = model.intercept_
+    coefs = model.coef_
+    terms = [f"{coef:.3f}*{feature}" for coef, feature in zip(coefs, X.columns)]
+    equation = f"{target_name} = {intercept:.3f} + " + " + ".join(terms)
+    return equation
+
+
+# Print equations
+#print_equation(model_tss, X, "TSS (% w/v)")
+#print_equation(model_turb, X, "Turbidity (NTU)")
 
 
 
+# --- Step 5: Build comparison DataFrame ---
+coef_df = pd.DataFrame({
+    "Wavelength": X.columns,
+    "TSS_Coefficient": model_tss.coef_,
+    "Turbidity_Coefficient": model_turb.coef_
+})
+
+# Add absolute values for easier ranking
+coef_df["|TSS|"] = coef_df["TSS_Coefficient"].abs()
+coef_df["|Turbidity|"] = coef_df["Turbidity_Coefficient"].abs()
+
+# Sort by strongest contributors for clarity
+coef_df_sorted = coef_df.sort_values(by="|TSS|", ascending=False)
+
+print("\nCoefficient Comparison Table:")
+print(coef_df_sorted)
+
+# --- Step 5: Build comparison DataFrame ---
+coef_df = pd.DataFrame({
+    "Wavelength": X.columns,
+    "TSS_Coefficient": model_tss.coef_,
+    "Turbidity_Coefficient": model_turb.coef_
+})
 
 
 
@@ -669,24 +754,196 @@ def page4():
         )
     
         st.plotly_chart(fig, use_container_width=True)
+def page5():
+    st.title("Linear Regression – Predicting TSS and Turbidity 📈")
 
+    # --- Placeholder explanatory text ---
+    st.markdown(
+        "<p style='color:black; font-size:18px; font-weight:bold;'>"
+        "Placeholder: Explain what linear regression is, why it’s used here, and how to interpret R² and RMSE."
+        "</p>",
+        unsafe_allow_html=True
+    )
+
+    # --- Metrics ---
+    st.subheader("Model Performance Metrics")
+    st.write(f"TSS R²:   {tss_r2:.3f}")
+    st.write(f"TSS RMSE: {tss_rmse:.3f}")
+    st.write(f"Turbidity R²:   {turb_r2:.3f}")
+    st.write(f"Turbidity RMSE: {turb_rmse:.3f}")
+
+    # --- Predicted vs Actual Plots ---
+    st.subheader("Predicted vs Actual Comparisons")
+
+    # Placeholder text for scatter plots
+    st.markdown(
+        "<p style='color:black; font-size:16px;'>"
+        "Placeholder: Describe how well predicted values align with actual values for TSS and Turbidity."
+        "</p>",
+        unsafe_allow_html=True
+    )
+
+    fig, axes = plt.subplots(1, 2, figsize=(10,4), sharex=False, sharey=False)
+
+    # TSS
+    axes[0].scatter(y_tss, y_tss_pred, color="steelblue", alpha=0.7)
+    axes[0].plot([y_tss.min(), y_tss.max()], [y_tss.min(), y_tss.max()], 'k--', lw=1)
+    axes[0].set_title("TSS: Predicted vs Actual")
+    axes[0].set_xlabel("Actual TSS (% w/v)")
+    axes[0].set_ylabel("Predicted TSS")
+
+    # Turbidity
+    axes[1].scatter(y_turb, y_turb_pred, color="darkorange", alpha=0.7)
+    axes[1].plot([y_turb.min(), y_turb.max()], [y_turb.min(), y_turb.max()], 'k--', lw=1)
+    axes[1].set_title("Turbidity: Predicted vs Actual")
+    axes[1].set_xlabel("Actual Turbidity (NTU)")
+    axes[1].set_ylabel("Predicted Turbidity")
+
+    plt.tight_layout()
+    st.pyplot(fig)
+
+     # --- Regression Equations ---
+    st.subheader("Regression Equations")
+    
+    st.markdown(
+        "<p style='color:black; font-size:16px;'>"
+        "Placeholder: Explain how to interpret regression equations and coefficients."
+        "</p>",
+        unsafe_allow_html=True
+    )
+    
+    # Print equations directly in Streamlit
+    eq_tss = print_equation(model_tss, X, "TSS (% w/v)")
+    eq_turb = print_equation(model_turb, X, "Turbidity (NTU)")
+    
+    # Display equations nicely
+    st.markdown(f"**TSS Equation:** {eq_tss}")
+    st.markdown(f"**Turbidity Equation:** {eq_turb}")
+
+
+    # --- Coefficient Plots ---
+    st.subheader("Regression Coefficients")
+
+    # Placeholder text for coefficient plots
+    st.markdown(
+        "<p style='color:black; font-size:16px;'>"
+        "Placeholder: Discuss which wavelengths contribute most strongly to TSS and Turbidity predictions."
+        "</p>",
+        unsafe_allow_html=True
+    )
+
+    # TSS coefficients
+    fig1, ax1 = plt.subplots(figsize=(10,6))
+    ax1.bar(coef_df["Wavelength"], coef_df["TSS_Coefficient"], color="steelblue")
+    ax1.set_title("TSS Regression Coefficients")
+    ax1.set_ylabel("Coefficient Value")
+    ax1.set_xticklabels(coef_df["Wavelength"], rotation=90)
+    plt.tight_layout()
+    st.pyplot(fig1)
+
+    # Turbidity coefficients
+    fig2, ax2 = plt.subplots(figsize=(10,6))
+    ax2.bar(coef_df["Wavelength"], coef_df["Turbidity_Coefficient"], color="darkorange")
+    ax2.set_title("Turbidity Regression Coefficients")
+    ax2.set_ylabel("Coefficient Value")
+    ax2.set_xticklabels(coef_df["Wavelength"], rotation=90)
+    plt.tight_layout()
+    st.pyplot(fig2)
+
+def page6():
+    st.title("Predict TSS and Turbidity from Absorbance 🌊")
+
+    # Placeholder explanatory text
+    st.markdown(
+        "<p style='color:black; font-size:18px; font-weight:bold;'>"
+        "Placeholder: Explain how absorbance values at common wavelengths can be used to predict TSS and Turbidity."
+        "</p>",
+        unsafe_allow_html=True
+    )
+
+    # --- Option 1: Manual Entry ---
+    st.subheader("Manual Entry of Absorbance Values")
+    user_inputs = {}
+    for feature in X.columns:
+        user_inputs[feature] = st.number_input(
+            f"Absorbance at {feature}",
+            value=0.0,
+            format="%.3f"
+        )
+
+    if st.button("Predict from Manual Entry"):
+        input_df = pd.DataFrame([user_inputs])
+        input_scaled = scaler.transform(input_df)
+        tss_pred = model_tss.predict(input_scaled)[0]
+        turb_pred = model_turb.predict(input_scaled)[0]
+
+        st.write(f"**Predicted TSS (% w/v):** {tss_pred:.3f}")
+        st.write(f"**Predicted Turbidity (NTU):** {turb_pred:.3f}")
+
+    # --- Option 2: Upload Excel File ---
+    st.subheader("Upload Excel File with Absorbance Values")
+    uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx", "xls"])
+
+    if uploaded_file is not None:
+        try:
+            # Read Excel file
+            df_uploaded = pd.read_excel(uploaded_file)
+
+            st.write("Preview of uploaded data:")
+            st.dataframe(df_uploaded.head())
+
+            # Ensure only predictor columns are used
+            df_predictors = df_uploaded[X.columns]
+
+            # Scale inputs
+            input_scaled = scaler.transform(df_predictors)
+
+            # Predict TSS and Turbidity
+            tss_preds = model_tss.predict(input_scaled)
+            turb_preds = model_turb.predict(input_scaled)
+
+            # Combine results
+            results_df = df_uploaded.copy()
+            results_df["Predicted TSS (% w/v)"] = tss_preds
+            results_df["Predicted Turbidity (NTU)"] = turb_preds
+
+            st.subheader("Predicted Results")
+            st.dataframe(results_df)
+
+        except Exception as e:
+            st.error(f"Error processing file: {e}")
 
 # -------------------------
 # Main App Navigation
 # -------------------------
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to:", [
-    "Page 1: Project Overview",
-    "Page 2: IDA",
-    "Page 3: EDA: Exploratory Data Analysis",
-    "Page 4: PCA – Are my samples discernibly different?"
-])
 
-if page == "Page 1: Project Overview":
-    page1()
-elif page == "Page 2: IDA":
-    page2()
-elif page == "Page 3: EDA: Exploratory Data Analysis":
-    page3()
-elif page == "Page 4: PCA – Are my samples discernibly different?":
-    page4()
+# Section choice first
+section = st.sidebar.radio("Choose section:", ["📚 Background", "⚙️ App Tool"])
+
+if section == "📚 Background":
+    page = st.sidebar.selectbox(
+        "Select a background page:",
+        [
+            "Project Overview",
+            "IDA: Initial Data Analysis",
+            "EDA: Exploratory Data Analysis",
+            "PCA – Are my samples discernibly different?",
+            "Linear Regression"
+        ]
+    )
+
+    if page == "Project Overview":
+        page1()
+    elif page == "IDA: Initial Data Analysis":
+        page2()
+    elif page == "EDA: Exploratory Data Analysis":
+        page3()
+    elif page == "PCA – Are my samples discernibly different?":
+        page4()
+    elif page == "Linear Regression":
+        page5()
+
+elif section == "⚙️ App Tool":
+    # Directly show the tool page (no dropdown needed)
+    page6()
