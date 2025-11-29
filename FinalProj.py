@@ -15,6 +15,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.model_selection import cross_val_score, KFold
 from sklearn.pipeline import Pipeline
 import streamlit as st
+import plotly.express as px
 
 # Loading data sheets according to sample type
 treated_waves= pd.read_excel("Sample no Filter.xlsx", sheet_name="Samples", header=None)
@@ -427,6 +428,138 @@ coef_df = pd.DataFrame({
     "Turbidity_Coefficient": model_turb.coef_
 })
 
+# --- Step 1: Keep only numeric predictors ---
+X = waves_physio.drop(columns=["Sample_ID","Type","%TS (w/w)","TSS (% w/v)","Turbidity (NTU)"])
+y_tss = waves_physio["TSS (% w/v)"]
+y_turb = waves_physio["Turbidity (NTU)"]
+
+results = []
+
+# --- Step 2: Loop through each predictor individually ---
+for feature in X.columns:
+    X_single = X[[feature]]  # one variable at a time
+    
+    # Fit regression for TSS
+    model_tss = LinearRegression().fit(X_single, y_tss)
+    y_tss_pred = model_tss.predict(X_single)
+    tss_r2 = r2_score(y_tss, y_tss_pred)
+    tss_rmse = np.sqrt(mean_squared_error(y_tss, y_tss_pred))
+    
+    # Fit regression for Turbidity
+    model_turb = LinearRegression().fit(X_single, y_turb)
+    y_turb_pred = model_turb.predict(X_single)
+    turb_r2 = r2_score(y_turb, y_turb_pred)
+    turb_rmse = np.sqrt(mean_squared_error(y_turb, y_turb_pred))
+    
+    results.append({
+        "Feature": feature,
+        "TSS R²": round(tss_r2, 3),
+        "TSS RMSE": round(tss_rmse, 3),
+        "Turbidity R²": round(turb_r2, 3),
+        "Turbidity RMSE": round(turb_rmse, 3)
+    })
+
+# --- Step 3: Convert results to DataFrame for inspection ---
+decomp_results = pd.DataFrame(results)
+
+fig_tss = px.bar(decomp_results, x="Feature", y="TSS R²", title="TSS R² by Wavelength", color="TSS R²")
+fig_turb = px.bar(decomp_results, x="Feature", y="Turbidity R²", title="Turbidity R² by Wavelength", color="Turbidity R²")
+
+# Top wavelengths
+top_wavelengths = [
+    "Wavelength_951.46",
+    "Wavelength_957.655",
+    "Wavelength_970.044",
+    "Wavelength_976.238",
+    "Wavelength_1186.846"
+]
+
+X_top = waves_physio[top_wavelengths]
+
+# Full spectrum (drop non-numeric identifiers and targets)
+X_full = waves_physio.drop(columns=[
+    "Sample_ID","Type","%TS (w/w)","TSS (% w/v)","Turbidity (NTU)"
+])
+
+# Targets
+y_tss = waves_physio["TSS (% w/v)"]
+y_turb = waves_physio["Turbidity (NTU)"]
+
+#Scaling
+scaler = StandardScaler()
+
+X_top_scaled = scaler.fit_transform(X_top)
+X_full_scaled = scaler.fit_transform(X_full)
+
+#Fitting Linear Regression Models
+# Top wavelengths
+model_tss_top = LinearRegression().fit(X_top_scaled, y_tss)
+model_turb_top = LinearRegression().fit(X_top_scaled, y_turb)
+
+# Full spectrum
+model_tss_full = LinearRegression().fit(X_full_scaled, y_tss)
+model_turb_full = LinearRegression().fit(X_full_scaled, y_turb)
+
+#evaluating fit
+def evaluate(model, X, y):
+    y_pred = model.predict(X)
+    r2 = r2_score(y, y_pred)
+    rmse = np.sqrt(mean_squared_error(y, y_pred))
+    return r2, rmse
+
+# Top wavelengths
+top_wavelengths = [
+    "Wavelength_951.46",
+    "Wavelength_957.655",
+    "Wavelength_970.044",
+    "Wavelength_976.238",
+    "Wavelength_1186.846"
+]
+
+X_top = waves_physio[top_wavelengths]
+
+# Full spectrum (drop non-numeric identifiers and targets)
+X_full = waves_physio.drop(columns=[
+    "Sample_ID","Type","%TS (w/w)","TSS (% w/v)","Turbidity (NTU)"
+])
+
+# Targets
+y_tss = waves_physio["TSS (% w/v)"]
+y_turb = waves_physio["Turbidity (NTU)"]
+
+#Scaling
+scaler = StandardScaler()
+
+X_top_scaled = scaler.fit_transform(X_top)
+X_full_scaled = scaler.fit_transform(X_full)
+
+#Fitting Linear Regression Models
+# Top wavelengths
+model_tss_top = LinearRegression().fit(X_top_scaled, y_tss)
+model_turb_top = LinearRegression().fit(X_top_scaled, y_turb)
+
+# Full spectrum
+model_tss_full = LinearRegression().fit(X_full_scaled, y_tss)
+model_turb_full = LinearRegression().fit(X_full_scaled, y_turb)
+
+#evaluating fit
+def evaluate(model, X, y):
+    y_pred = model.predict(X)
+    r2 = r2_score(y, y_pred)
+    rmse = np.sqrt(mean_squared_error(y, y_pred))
+    return r2, rmse
+
+tss_r2_top, tss_rmse_top = evaluate(model_tss_top, X_top_scaled, y_tss)
+tss_r2_full, tss_rmse_full = evaluate(model_tss_full, X_full_scaled, y_tss)
+
+turb_r2_top, turb_rmse_top = evaluate(model_turb_top, X_top_scaled, y_turb)
+turb_r2_full, turb_rmse_full = evaluate(model_turb_full, X_full_scaled, y_turb)
+
+#visualizing coefficients
+# TSS coefficients
+coef_tss = dict(zip(top_wavelengths, model_tss_top.coef_))
+coef_turb = dict(zip(top_wavelengths, model_turb_top.coef_))
+
 
 
 # -------------------------
@@ -637,8 +770,34 @@ def page3():
         ax.set_ylabel("Physiochemical Parameters", fontsize=14)
         st.pyplot(fig)
 
-
 def page4():
+    st.title("Imputing Missing Values 🧩")
+
+    # Placeholder explanatory text
+    st.markdown(
+        "<p style='color:black; font-size:16px;'>"
+        "Placeholder: Describe the imputation technique used (e.g., KNN, mean, median) and why it was chosen."
+        "</p>",
+        unsafe_allow_html=True
+    )
+
+    # --- Compare Original vs Imputed TSS ---
+    fig_tss = plt.figure(figsize=(8, 4))
+    sns.histplot(tss_not_missing.dropna(), kde=True, color='blue', alpha=0.5, label='Original (non-missing)')
+    sns.histplot(tss_imputed['TSS (% w/v)'], kde=True, color='red', alpha=0.5, label='Imputed')
+    plt.title('Distribution of Original vs Imputed TSS')
+    plt.legend()
+    st.pyplot(fig_tss)
+
+    # --- Compare Original vs Imputed Turbidity ---
+    fig_turb = plt.figure(figsize=(8, 4))
+    sns.histplot(turb_not_missing.dropna(), kde=True, color='blue', alpha=0.5, label='Original (non-missing)')
+    sns.histplot(turb_imputed['Turbidity (NTU)'], kde=True, color='red', alpha=0.5, label='Imputed')
+    plt.title('Distribution of Original vs Imputed Turbidity (NTU)')
+    plt.legend()
+    st.pyplot(fig_turb)
+
+def page5():
     st.title("Principal Component Analysis – Are my samples discernibly different? 🔍")
 
     # Toggle between PCA biplot and Scree plot
@@ -754,112 +913,206 @@ def page4():
         )
     
         st.plotly_chart(fig, use_container_width=True)
-def page5():
-    st.title("Linear Regression – Predicting TSS and Turbidity 📈")
+def page6():
+    st.title("Linear Regression Using All Common Wavelengths 📈")
 
-    # --- Placeholder explanatory text ---
-    st.markdown(
-        "<p style='color:black; font-size:18px; font-weight:bold;'>"
-        "Placeholder: Explain what linear regression is, why it’s used here, and how to interpret R² and RMSE."
-        "</p>",
-        unsafe_allow_html=True
-    )
+    # --- Define predictors for full spectrum ---
+    X_full_lr = waves_physio.drop(columns=[
+        "Sample_ID","Type","%TS (w/w)","TSS (% w/v)","Turbidity (NTU)"
+    ])
+    y_tss_lr = waves_physio["TSS (% w/v)"]
+    y_turb_lr = waves_physio["Turbidity (NTU)"]
+
+    # --- Standardize predictors ---
+    scaler_lr = StandardScaler()
+    X_scaled_lr = scaler_lr.fit_transform(X_full_lr)
+
+    # --- Fit regression models ---
+    model_tss_lr = LinearRegression().fit(X_scaled_lr, y_tss_lr)
+    model_turb_lr = LinearRegression().fit(X_scaled_lr, y_turb_lr)
+
+    # --- Predictions ---
+    y_tss_pred_lr = model_tss_lr.predict(X_scaled_lr)
+    y_turb_pred_lr = model_turb_lr.predict(X_scaled_lr)
 
     # --- Metrics ---
+    tss_r2_lr = r2_score(y_tss_lr, y_tss_pred_lr)
+    tss_rmse_lr = np.sqrt(mean_squared_error(y_tss_lr, y_tss_pred_lr))
+    turb_r2_lr = r2_score(y_turb_lr, y_turb_pred_lr)
+    turb_rmse_lr = np.sqrt(mean_squared_error(y_turb_lr, y_turb_pred_lr))
+
     st.subheader("Model Performance Metrics")
-    st.write(f"TSS R²:   {tss_r2:.3f}")
-    st.write(f"TSS RMSE: {tss_rmse:.3f}")
-    st.write(f"Turbidity R²:   {turb_r2:.3f}")
-    st.write(f"Turbidity RMSE: {turb_rmse:.3f}")
+    st.write(f"TSS R²:   {tss_r2_lr:.3f}")
+    st.write(f"TSS RMSE: {tss_rmse_lr:.3f}")
+    st.write(f"Turbidity R²:   {turb_r2_lr:.3f}")
+    st.write(f"Turbidity RMSE: {turb_rmse_lr:.3f}")
 
     # --- Predicted vs Actual Plots ---
-    st.subheader("Predicted vs Actual Comparisons")
-
-    # Placeholder text for scatter plots
-    st.markdown(
-        "<p style='color:black; font-size:16px;'>"
-        "Placeholder: Describe how well predicted values align with actual values for TSS and Turbidity."
-        "</p>",
-        unsafe_allow_html=True
-    )
-
-    fig, axes = plt.subplots(1, 2, figsize=(10,4), sharex=False, sharey=False)
-
-    # TSS
-    axes[0].scatter(y_tss, y_tss_pred, color="steelblue", alpha=0.7)
-    axes[0].plot([y_tss.min(), y_tss.max()], [y_tss.min(), y_tss.max()], 'k--', lw=1)
+    fig, axes = plt.subplots(1, 2, figsize=(10,4))
+    axes[0].scatter(y_tss_lr, y_tss_pred_lr, color="steelblue", alpha=0.7)
+    axes[0].plot([y_tss_lr.min(), y_tss_lr.max()], [y_tss_lr.min(), y_tss_lr.max()], 'k--', lw=1)
     axes[0].set_title("TSS: Predicted vs Actual")
     axes[0].set_xlabel("Actual TSS (% w/v)")
     axes[0].set_ylabel("Predicted TSS")
 
-    # Turbidity
-    axes[1].scatter(y_turb, y_turb_pred, color="darkorange", alpha=0.7)
-    axes[1].plot([y_turb.min(), y_turb.max()], [y_turb.min(), y_turb.max()], 'k--', lw=1)
+    axes[1].scatter(y_turb_lr, y_turb_pred_lr, color="darkorange", alpha=0.7)
+    axes[1].plot([y_turb_lr.min(), y_turb_lr.max()], [y_turb_lr.min(), y_turb_lr.max()], 'k--', lw=1)
     axes[1].set_title("Turbidity: Predicted vs Actual")
     axes[1].set_xlabel("Actual Turbidity (NTU)")
     axes[1].set_ylabel("Predicted Turbidity")
 
-    plt.tight_layout()
     st.pyplot(fig)
 
-     # --- Regression Equations ---
+    # --- Regression Equations ---
+    eq_tss_lr = print_equation(model_tss_lr, X_full_lr, "TSS (% w/v)")
+    eq_turb_lr = print_equation(model_turb_lr, X_full_lr, "Turbidity (NTU)")
     st.subheader("Regression Equations")
-    
-    st.markdown(
-        "<p style='color:black; font-size:16px;'>"
-        "Placeholder: Explain how to interpret regression equations and coefficients."
-        "</p>",
-        unsafe_allow_html=True
-    )
-    
-    # Print equations directly in Streamlit
-    eq_tss = print_equation(model_tss, X, "TSS (% w/v)")
-    eq_turb = print_equation(model_turb, X, "Turbidity (NTU)")
-    
-    # Display equations nicely
-    st.markdown(f"**TSS Equation:** {eq_tss}")
-    st.markdown(f"**Turbidity Equation:** {eq_turb}")
-
+    st.markdown(f"**TSS Equation:** {eq_tss_lr}")
+    st.markdown(f"**Turbidity Equation:** {eq_turb_lr}")
 
     # --- Coefficient Plots ---
-    st.subheader("Regression Coefficients")
+    coef_df_lr = pd.DataFrame({
+        "Wavelength": X_full_lr.columns,
+        "TSS_Coefficient": model_tss_lr.coef_,
+        "Turbidity_Coefficient": model_turb_lr.coef_
+    })
 
-    # Placeholder text for coefficient plots
+    fig1, ax1 = plt.subplots(figsize=(10,6))
+    ax1.bar(coef_df_lr["Wavelength"], coef_df_lr["TSS_Coefficient"], color="steelblue")
+    ax1.set_title("TSS Regression Coefficients")
+    ax1.set_ylabel("Coefficient Value")
+    ax1.set_xticklabels(coef_df_lr["Wavelength"], rotation=90)
+    st.pyplot(fig1)
+
+    fig2, ax2 = plt.subplots(figsize=(10,6))
+    ax2.bar(coef_df_lr["Wavelength"], coef_df_lr["Turbidity_Coefficient"], color="darkorange")
+    ax2.set_title("Turbidity Regression Coefficients")
+    ax2.set_ylabel("Coefficient Value")
+    ax2.set_xticklabels(coef_df_lr["Wavelength"], rotation=90)
+    st.pyplot(fig2)
+
+def page7():
+    st.title("Multivariate Regression Comparison 📊")
+
+    # --- Introductory blurb ---
     st.markdown(
-        "<p style='color:black; font-size:16px;'>"
-        "Placeholder: Discuss which wavelengths contribute most strongly to TSS and Turbidity predictions."
-        "</p>",
+        """
+        ### Why Multivariate Regression?
+        In this analysis we focused on absorbance values at five wavelengths: **951.46 nm, 957.655 nm, 970.044 nm,
+        976.238 nm, and 1186.846 nm**. These were selected because single‑variable decomposition showed they consistently
+        explained the most variance in both TSS and Turbidity, particularly the cluster in the 950–976 nm region.
+
+        While individual wavelengths can provide useful signals, water quality is influenced by overlapping spectral
+        features. **Multivariate regression allows us to combine multiple predictors simultaneously**, capturing
+        complementary information and reducing redundancy. By comparing performance against the full spectrum model,
+        we can evaluate whether a reduced set of wavelengths is sufficient for accurate prediction, balancing
+        interpretability with predictive power.
+        """,
         unsafe_allow_html=True
     )
 
-    # TSS coefficients
-    fig1, ax1 = plt.subplots(figsize=(10,6))
-    ax1.bar(coef_df["Wavelength"], coef_df["TSS_Coefficient"], color="steelblue")
-    ax1.set_title("TSS Regression Coefficients")
-    ax1.set_ylabel("Coefficient Value")
-    ax1.set_xticklabels(coef_df["Wavelength"], rotation=90)
-    plt.tight_layout()
-    st.pyplot(fig1)
+    # --- Define predictors ---
+    top_wavelengths = [
+        "Wavelength_951.46","Wavelength_957.655",
+        "Wavelength_970.044","Wavelength_976.238",
+        "Wavelength_1186.846"
+    ]
+    X_top_comp = waves_physio[top_wavelengths]
+    X_full_comp = waves_physio.drop(columns=[
+        "Sample_ID","Type","%TS (w/w)","TSS (% w/v)","Turbidity (NTU)"
+    ])
+    y_tss_comp = waves_physio["TSS (% w/v)"]
+    y_turb_comp = waves_physio["Turbidity (NTU)"]
 
-    # Turbidity coefficients
-    fig2, ax2 = plt.subplots(figsize=(10,6))
-    ax2.bar(coef_df["Wavelength"], coef_df["Turbidity_Coefficient"], color="darkorange")
-    ax2.set_title("Turbidity Regression Coefficients")
-    ax2.set_ylabel("Coefficient Value")
-    ax2.set_xticklabels(coef_df["Wavelength"], rotation=90)
-    plt.tight_layout()
-    st.pyplot(fig2)
+    # --- Standardize predictors ---
+    scaler_comp = StandardScaler()
+    X_top_scaled = scaler_comp.fit_transform(X_top_comp)
+    X_full_scaled = scaler_comp.fit_transform(X_full_comp)
 
-def page6():
+    # --- Fit models ---
+    model_tss_top = LinearRegression().fit(X_top_scaled, y_tss_comp)
+    model_turb_top = LinearRegression().fit(X_top_scaled, y_turb_comp)
+    model_tss_full = LinearRegression().fit(X_full_scaled, y_tss_comp)
+    model_turb_full = LinearRegression().fit(X_full_scaled, y_turb_comp)
+
+    # --- Evaluate performance ---
+    def evaluate(model, X, y):
+        y_pred = model.predict(X)
+        r2 = r2_score(y, y_pred)
+        rmse = np.sqrt(mean_squared_error(y, y_pred))
+        return r2, rmse
+
+    tss_r2_top, tss_rmse_top = evaluate(model_tss_top, X_top_scaled, y_tss_comp)
+    tss_r2_full, tss_rmse_full = evaluate(model_tss_full, X_full_scaled, y_tss_comp)
+    turb_r2_top, turb_rmse_top = evaluate(model_turb_top, X_top_scaled, y_turb_comp)
+    turb_r2_full, turb_rmse_full = evaluate(model_turb_full, X_full_scaled, y_turb_comp)
+   # --- Display metrics ---
+    st.subheader("Single Value Decomposition Results")
+    st.plotly_chart(fig_tss, use_container_width=True)
+    st.plotly_chart(fig_turb, use_container_width=True)
+    
+    # --- Display metrics ---
+    st.subheader("Model Performance")
+    st.markdown(f"**TSS (Top wavelengths):** R² = {tss_r2_top:.3f}, RMSE = {tss_rmse_top:.3f}")
+    st.markdown(f"**TSS (Full spectrum):** R² = {tss_r2_full:.3f}, RMSE = {tss_rmse_full:.3f}")
+    st.markdown(f"**Turbidity (Top wavelengths):** R² = {turb_r2_top:.3f}, RMSE = {turb_rmse_top:.3f}")
+    st.markdown(f"**Turbidity (Full spectrum):** R² = {turb_r2_full:.3f}, RMSE = {turb_rmse_full:.3f}")
+
+    # --- Observations blurb with emojis ---
+    st.markdown(
+        """
+        ### ✅ Observations
+
+        🌊 **Strongest performers for Turbidity (highest R²):**
+        - 951.46 nm → Turbidity R² = 0.492  
+        - 957.655 nm → Turbidity R² = 0.491  
+        - 970.044 nm → Turbidity R² = 0.488  
+        - These three are clustered in the **950–970 nm region**, suggesting a spectral band that is particularly informative for turbidity.
+
+        📊 **Strongest performers for TSS (highest R²):**
+        - 957.655 nm → TSS R² = 0.385  
+        - 951.46 nm → TSS R² = 0.384  
+        - 970.044 nm → TSS R² = 0.383  
+        - Again, the same **950–970 nm region** dominates.
+
+        ⚠️ **Weaker predictors:**
+        - 1267.373 nm and 1453.203 nm have noticeably lower R² values (especially for turbidity, 0.440 and 0.341).  
+        - These wavelengths add less explanatory power individually.
+        """,
+        unsafe_allow_html=True
+    )
+
+    # --- Visualize coefficients for Top wavelengths ---
+    st.subheader("Feature Importance (Top Wavelengths)")
+    coef_tss = dict(zip(top_wavelengths, model_tss_top.coef_))
+    coef_turb = dict(zip(top_wavelengths, model_turb_top.coef_))
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    sns.barplot(x=list(coef_tss.keys()), y=list(coef_tss.values()), ax=axes[0])
+    axes[0].set_title("TSS Coefficients")
+    axes[0].tick_params(axis='x', rotation=45)
+
+    sns.barplot(x=list(coef_turb.keys()), y=list(coef_turb.values()), ax=axes[1])
+    axes[1].set_title("Turbidity Coefficients")
+    axes[1].tick_params(axis='x', rotation=45)
+
+    st.pyplot(fig)
+
+# Page 8: Prediction Tool
+def page8():
     st.title("Predict TSS and Turbidity from Absorbance 🌊")
 
     # Placeholder explanatory text
     st.markdown(
-        "<p style='color:black; font-size:18px; font-weight:bold;'>"
-        "Placeholder: Explain how absorbance values at common wavelengths can be used to predict TSS and Turbidity."
-        "</p>",
+        """
+        <p style='color:black; font-size:18px; font-weight:bold;'>
+            Because we found that the <span style='color:darkorange; font-weight:bold;'>full spectrum model</span> 
+            yielded a higher R² value, we will use all the common wavelength absorbances to predict TSS and Turbidity.
+        </p>
+        """,
         unsafe_allow_html=True
     )
+
 
     # --- Option 1: Manual Entry ---
     st.subheader("Manual Entry of Absorbance Values")
@@ -886,9 +1139,7 @@ def page6():
 
     if uploaded_file is not None:
         try:
-            # Read Excel file
             df_uploaded = pd.read_excel(uploaded_file)
-
             st.write("Preview of uploaded data:")
             st.dataframe(df_uploaded.head())
 
@@ -918,18 +1169,19 @@ def page6():
 # -------------------------
 st.sidebar.title("Navigation")
 
-# Section choice first
-section = st.sidebar.radio("Choose section:", ["📚 Background", "⚙️ App Tool"])
+section = st.sidebar.radio("Choose section:", ["📚 Project Overview", "⚙️ App Tool"])
 
-if section == "📚 Background":
+if section == "📚 Project Overview":
     page = st.sidebar.selectbox(
-        "Select a background page:",
+        "Select a page:",
         [
             "Project Overview",
             "IDA: Initial Data Analysis",
             "EDA: Exploratory Data Analysis",
+            "Imputing Missing Values",
             "PCA – Are my samples discernibly different?",
-            "Linear Regression"
+            "Linear Regression Using All Common Wavelengths",
+            "Multivariate Regression Comparison"
         ]
     )
 
@@ -939,11 +1191,15 @@ if section == "📚 Background":
         page2()
     elif page == "EDA: Exploratory Data Analysis":
         page3()
-    elif page == "PCA – Are my samples discernibly different?":
+    elif page == "Imputing Missing Values":
         page4()
-    elif page == "Linear Regression":
+    elif page == "PCA – Are my samples discernibly different?":
         page5()
+    elif page == "Linear Regression Using All Common Wavelengths":
+        page6()
+    elif page == "Multivariate Regression Comparison":
+        page7()
+
 
 elif section == "⚙️ App Tool":
-    # Directly show the tool page (no dropdown needed)
-    page6()
+    page8()
