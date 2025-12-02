@@ -571,20 +571,79 @@ def page1():
     st.markdown("""
     ### 🌍 Why This Project?
     Water quality is a critical issue worldwide 🌊. Suspended solids and turbidity directly affect ecosystems 🐟,
-    drinking water safety 🚰, and wastewater treatment efficiency 🏭. By using absorbance data at specific wavelengths,
-    we can build predictive models that help monitor and manage water quality more effectively 💧.
+    drinking water safety 🚰, and wastewater treatment efficiency 🏭. By using absorbance data at Near Infrared (NIR) wavelengths,
+    we can build predictive models that help monitor and manage water quality more effectively 💧. 
 
     ### 🔬 Scientific Motivation
-    Spectroscopy provides a rapid, non-destructive way to analyze water samples 🧪. Instead of relying solely on
-    traditional lab methods ⚗️, absorbance readings can be transformed into meaningful predictions of TSS and Turbidity.
-    This bridges environmental science 🌱 with data science 📊, creating scalable solutions for water monitoring.
+    NIR spectroscopy uses wavelengths that capture differences in molecular structure, and it is our **hypothesis** that readings 
+    at certain wavelengths can be correlated to solids contamination of municipal wastewater. If this correlation is successful, 
+    discharge standards such as total solids (TS) and total suspended solids (TSS) can be continously monitored without the need for 
+    the current 24-hour total solids EPA protocol.⚗️This bridges environmental science 🌱 with data science 📊, creating scalable 
+    solutions for water monitoring.
 
-    ### 🚀 Personal Goal
-    My aim is to demonstrate how reproducible modeling workflows can connect raw spectral data 📈 with real-world
+    ### 🚀 Project Goal: scroll down
+    The aim of this project is to demonstrate how reproducible modeling workflows can connect raw spectral data 📈 with real-world
     water quality outcomes 🌊. This project is both a scientific exploration 🔬 and a practical tool for
     wastewater management 🏭 and clean water initiatives 💧.
     """)
+    st.markdown("""
+    ### Navigation Breakdown: each page contains multiple viewing options, these are listed below for your convenience.
+    ### Initial Data Analysis: 
+    Option 1: Data collection and importation information
+   
+    Option 2: Data cleaning and preprocessing
+    
+    Option 3: Basic descriptive statistics - Contains tables describing the mean, standard deviation, n-count, etc. of the different
+    data sources used for this project. These sources include near infrared spectroscopy data, TS, TSS and turbidity. 
+   
+    Option 4: Missing data analysis - this page contains the visualization of missing values in the data sets (probably due to 
+    a clumsy technician (Me)). This page also includes the visualization of the KNN nearest neighbors imputation method used for 
+    the prediction of these sample types. 
 
+    ### Exploratory Data Analysis
+    Option 1: Visualizing means of physiochemical characteristics vs sample type - this visualization is an initial exploration into the differences
+    between each sample type. Here I'm starting to identify any possible patterns I can delve into later. 
+   
+    Option 2: Visualizing spectral fingerprints according to sample types - this visualization takes the analysis in option 1 a step further, by copying
+    the method and applying it to the NIR data, instead of the physiochemical parameters. 
+   
+    Option 3: Separate sample types and their absorbance plots-Interactive! - This page allows the user to scroll through the individual NIR plots to get
+    an unhibited glimpse of what the standard deviation bands are without the other sample lines occluding them. Additionally, the viewer can hover over 
+    different absorbance points and get a glipse at the approximate wavelength.
+   
+    Option 4: Common peaks and valleys - After initial analysis revealed conserved local maxima and minima, I decided to find at what specific
+    wavelengths these occurred. This visualization tracks the conserved maxima and minima across all three sample types within a certain tolerance.
+   
+    Option 5: Summary statistics for common peaks and valleys - This page gives the maxima and minima wavelengths and lists the average absorbances
+    of the different sample types, along with other basic statistics. 
+   
+    Option 6: Correlation? You decide - Once discrete and conserved maxima and minima were isolated, I ran a correlation matrix with the absorbance
+    values at these wavelengths against the physiochemical parameters. This page shows the correlation coefficients for each comparison in a heatmap.
+
+    ### Imputing Missing Values
+    This page does not have multiple options to select. The graphs here are similar to our CMSE 830 in class assignment and shows the distribution
+    of values after KNN nearest neighbor analysis compared to the original data set. 
+
+    ### Principal Component Analysis – Are my samples discernibly different?
+    Here the user can toggle between the skree plot that shows how many principal components are needed to describe the majority of variance, 
+    along with the biplot, which gives the eigenvectors of each parameter and the direction and magnitude of effect on variance. 
+
+    ### Linear Regression Using All Common Wavelengths
+    The purpose of this page is to compute an equation that will provide a predicted TSS and turbidity value based on the absorbances at all
+    the identified maxima and minima. Additionally, the R^2 and RMSE values for this computed equation are provided. 
+
+    ### Multivariate Regression Comparison
+    This modeling method takes a different approach and instead identifies the wavelengths that contribute the most variation and computes an equation 
+    for TSS and turbidity in an effort to make the app easier to use, ie. instead of inputting 10 absorbance values, the user would only have to input two or three.
+    As shown by the RMSE and R^2 values, this approach yields a significantly less reliable equation. So, in the next page, the user is asked to either enter the 
+    absorbance values, or upload a file containing them. 
+
+    ### Predict TSS and Turbidity from Absorbance
+    This page calculates the TSS and turbidity values based on the absorbance readings at certain wavelengths. In theory, achieving the goal of providing an approximate
+    TSS value without having to perform the wet lab analysis. I did not extend this analysis for the TS measurements, as these were not as correlated with absorbance. 
+    However, these TS values are correlated to TSS, and a functional model might be made after predicting the TSS accurately and from there, predicting TS. 
+    
+    """)
 # -------------------------
 # Page 2: IDA
 # -------------------------
